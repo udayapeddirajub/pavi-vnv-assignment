@@ -1,0 +1,52 @@
+name: AES Project CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  rtl-testbench:
+    name: "Run RTL Testbench Simulation"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Verilator
+        run: sudo apt-get update && sudo apt-get install -y verilator
+
+      - name: Run Verilator simulation for AES_tb.v
+        run: |
+          cd gateware/verif
+          verilator --cc --exe --build AES_tb.v ../src/AES.v
+          ./obj_dir/VAES_tb > verilator.log || exit 1
+
+      - name: Upload RTL simulation logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: rtl-simulation-logs
+          path: gateware/verif/verilator.log
+
+  c-unit-tests:
+    name: "Run C Unit Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install -y build-essential
+
+      - name: Build and Run C test_aes_app.c
+        run: |
+          cd software/tests
+          gcc -o test_aes_app test_aes_app.c ../src/aesapp.c ../src/aesdriver.c -I../inc
+          ./test_aes_app > test_aes_app.log || exit 1
+
+      - name: Upload C unit test logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: c-unit-test-logs
+          path: software/tests/test_aes_app.log
